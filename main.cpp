@@ -4,7 +4,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-
+#include <signal.h>
 #include <iostream>
 #include <string>
 #include <cstring>
@@ -29,8 +29,6 @@ void handleConnection(int clientsocket_fd);
 
 int main(int argc, char *argv[])
 {
-
-
 
      if (argc < 2) {
          std::cerr << "ERROR, no port provided" << std::endl;
@@ -63,7 +61,8 @@ int main(int argc, char *argv[])
      int clientsocket_fd = accept(socket_fd, (struct sockaddr *) &client_addr, &client_addr_length);
      if (clientsocket_fd < 0) error("ERROR on accept");
 
-     __pid_t pid = fork();
+     signal(SIGCHLD, SIG_IGN);  // to avoid creating zombies
+     pid_t pid = fork();
 
      if (pid < 0) error("ERROR on fork");
      if (pid == 0){
@@ -84,7 +83,6 @@ void handleConnection(int clientsocket_fd){
 
     char buffer[BUFSIZE];
     memset(buffer,0,BUFSIZE);
-
     int n = read(clientsocket_fd,buffer,BUFSIZE-1);
     if (n < 0) error("ERROR reading from socket");
 
