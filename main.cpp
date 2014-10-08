@@ -25,11 +25,12 @@ void error(const std::string& msg)
     exit(1);
 }
 
+void handleConnection(int clientsocket_fd);
 
 int main(int argc, char *argv[])
 {
 
-     char buffer[BUFSIZE];
+
 
      if (argc < 2) {
          std::cerr << "ERROR, no port provided" << std::endl;
@@ -51,29 +52,46 @@ int main(int argc, char *argv[])
      serv_addr.sin_addr.s_addr = INADDR_ANY;
      serv_addr.sin_port = htons(port_number);
 
-     if (bind(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
-              error("ERROR on binding");
+     if (bind(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) error("ERROR on binding");
 
-     if (listen(socket_fd,5) < 0)
-             error("ERROR while preparing to accept connections on socket");
+     if (listen(socket_fd,5) < 0) error("ERROR while preparing to accept connections on socket");
 
      struct sockaddr_in client_addr;
      socklen_t client_addr_length = sizeof(client_addr);
 
+     for (;;){
      int clientsocket_fd = accept(socket_fd, (struct sockaddr *) &client_addr, &client_addr_length);
-     if (clientsocket_fd < 0)
-          error("ERROR on accept");
+     if (clientsocket_fd < 0) error("ERROR on accept");
 
-     memset(buffer,0,BUFSIZE);
-     int n = read(clientsocket_fd,buffer,BUFSIZE-1);
-     if (n < 0) error("ERROR reading from socket");
+     __pid_t pid = fork();
 
-     std::cout << "Message received: " << buffer << std::endl;
+     if (pid < 0) error("ERROR on fork");
+     if (pid == 0){
+         close(socket_fd);
+         handleConnection(clientsocket_fd);
+         exit(0);
 
-     n = write(clientsocket_fd,reply.c_str(),reply.size());
-     if (n < 0) error("ERROR writing to socket");
+     }
+     else close(clientsocket_fd);
+     }
 
-     close(clientsocket_fd);
+
      close(socket_fd);
      return 0;
+}
+
+void handleConnection(int clientsocket_fd){
+
+    char buffer[BUFSIZE];
+    memset(buffer,0,BUFSIZE);
+
+    int n = read(clientsocket_fd,buffer,BUFSIZE-1);
+    if (n < 0) error("ERROR reading from socket");
+
+    std::cout << "Message received: " << buffer << std::endl;
+
+    n = write(clientsocket_fd,reply.c_str(),reply.size());
+    if (n < 0) error("ERROR writing to socket");
+
+    close(clientsocket_fd);
 }
