@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -55,7 +54,8 @@ int main(int argc, char *argv[])
      if (bind(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
               error("ERROR on binding");
 
-     listen(socket_fd,5);
+     if (listen(socket_fd,5) < 0)
+             error("ERROR while preparing to accept connections on socket");
 
      struct sockaddr_in client_addr;
      socklen_t client_addr_length = sizeof(client_addr);
