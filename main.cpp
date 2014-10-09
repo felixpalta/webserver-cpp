@@ -58,7 +58,7 @@ void error(const std::string& msg)
 }
 
 void handleConnection(int clientsocket_fd);
-int sendReply(int socket_fd,const std::string& reply);
+void sendReply(int socket_fd,const std::string& reply);
 
 int main(int argc, char *argv[])
 {
@@ -162,7 +162,7 @@ void handleConnection(int clientsocket_fd){
     close(clientsocket_fd);
 }
 
-int sendReply(int socket_fd,const std::string& reply){
+void sendReply(int socket_fd,const std::string& reply){
     int n = write(socket_fd,reply.c_str(),reply.size());
     if (n < 0) {
         close(socket_fd);
