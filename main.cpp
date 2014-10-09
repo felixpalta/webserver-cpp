@@ -16,37 +16,47 @@ static const std::string START_PAGE_NAME = "index.html";
 static const std::string METHOD_GET = "GET";
 static const std::string ROOT_PATH = "/";
 
-static const std::string REPLY_NOT_IMPLEMENTED =
-        "HTTP/1.1 501 Not Implemented\n"
-        "Content-Type: text/html; charset=utf-8\n"
-        "\n"
-        "<html>"
-        "<head><title>501 Not Implemented</title></head>"
-        "<body><center><h1><b>501 Not implemented</b></h1></center></body>"
-        "</html>";
+enum HTTP_CODES {
+    OK = 200,
+    BAD_REQUEST = 400,
+    NOT_FOUND = 404,
+    NOT_IMPLEMENTED = 501,
+};
 
-static const std::string REPLY_BAD_REQUEST =
-        "HTTP/1.1 400 Bad Request\n"
-        "Content-Type: text/html; charset=utf-8\n"
-        "\n"
-        "<html>"
-        "<head><title>400 Bad Request</title></head>"
-        "<body><center><h1><b>400 Bad Request</b></h1></center></body>"
-        "</html>";
 
-static const std::string REPLY_NOT_FOUND =
-        "HTTP/1.1 404 Not Found\n"
-        "Content-Type: text/html; charset=utf-8\n"
-        "\n"
-        "<html>"
-        "<head><title>404 Not Found</title></head>"
-        "<body><center><h1><b>404 Not Found</b></h1></center></body>"
-        "</html>";
+std::string makeReply(HTTP_CODES code){
+    std::string code_description;
+    switch (code) {
+    case OK:
+        code_description = "200 OK";
+        break;
+    case BAD_REQUEST:
+        code_description = "400 Bad Request";
+        break;
+    case NOT_FOUND:
+        code_description = "404 Not Found";
+        break;
+    case NOT_IMPLEMENTED:
+        code_description = "501 Not Implemented";
+        break;
+    default:
+        code_description = "Impossible HTTP status code";
+        break;
+    }
 
-static const std::string REPLY_OK =
-        "HTTP/1.1 200 OK\n"
-        "Content-Type: text/html; charset=utf-8\n"
-        "\n";
+    std::string reply = "HTTP/1.1 " + code_description + " \n"
+                        "Content-Type: text/html; charset=utf-8\n"
+                        "\n";
+
+    if (code != OK){
+        reply +=    "<html>"
+                    "<head><title>" + code_description + "</title></head>"
+                    "<body><center><h1><b>" + code_description + "</b></h1></center></body>"
+                    "</html>";
+    }
+
+    return reply;
+}
 
 static const unsigned BUFSIZE = 1024;
 static const unsigned QUEUESIZE = 5;
@@ -138,26 +148,26 @@ void handleConnection(int clientsocket_fd){
                    if (start_page_stream){
                        std::stringstream file_buffer;
                        file_buffer << start_page_stream.rdbuf();
-                       sendReply(clientsocket_fd,REPLY_OK);
+                       sendReply(clientsocket_fd,makeReply(OK));
                        sendReply(clientsocket_fd,file_buffer.str());
                        }
                    else {
-                       sendReply(clientsocket_fd,REPLY_NOT_FOUND);
+                       sendReply(clientsocket_fd,makeReply(NOT_FOUND));
                        std::cout << "Path: " << path << std::endl;
                    }
 
             }
             else {
-                sendReply(clientsocket_fd,REPLY_NOT_FOUND);
+                sendReply(clientsocket_fd,makeReply(NOT_FOUND));
                 std::cout << "Path: " << path << std::endl;
             }
         }
         else  {
-            sendReply(clientsocket_fd,REPLY_NOT_IMPLEMENTED);
+            sendReply(clientsocket_fd,makeReply(NOT_IMPLEMENTED));
             std::cout << "Method: " << method << std::endl;
         }
     }
-    else sendReply(clientsocket_fd,REPLY_BAD_REQUEST);
+    else sendReply(clientsocket_fd,makeReply(BAD_REQUEST));
 
     close(clientsocket_fd);
 }
