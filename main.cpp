@@ -53,11 +53,9 @@ int main(int argc, char *argv[])
 
      if (listen(socket_fd,QUEUESIZE) < 0) error("ERROR while preparing to accept connections on socket");
 
-     struct sockaddr_in client_addr;
-     socklen_t client_addr_length = sizeof(client_addr);
 
      for (;;){
-         int clientsocket_fd = accept(socket_fd, (struct sockaddr *) &client_addr, &client_addr_length);
+         int clientsocket_fd = accept(socket_fd, NULL, NULL);
          if (clientsocket_fd < 0) error("ERROR on accept");
 
          signal(SIGCHLD, SIG_IGN);  // to avoid creating zombies
@@ -81,12 +79,19 @@ void handleConnection(int clientsocket_fd){
     char buffer[BUFSIZE];
     memset(buffer,0,BUFSIZE);
     int n = read(clientsocket_fd,buffer,BUFSIZE-1);
-    if (n < 0) error("ERROR reading from socket");
+    if (n < 0)
+    {
+        close(clientsocket_fd);
+        error("ERROR reading from socket");
+    }
 
     std::cout << "Message received: " << buffer << std::endl;
 
     n = write(clientsocket_fd,reply.c_str(),reply.size());
-    if (n < 0) error("ERROR writing to socket");
+    if (n < 0) {
+        close(clientsocket_fd);
+        error("ERROR writing to socket");
+    }
 
     close(clientsocket_fd);
 }
