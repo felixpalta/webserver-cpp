@@ -18,6 +18,7 @@ static const std::string reply =
         "\n";
 
 static const unsigned BUFSIZE = 1024;
+static const unsigned QUEUESIZE = 5;
 
 void error(const std::string& msg)
 {
@@ -37,12 +38,10 @@ int main(int argc, char *argv[])
 
      int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 
-     if (socket_fd < 0)
-        error("ERROR opening socket");
+     if (socket_fd < 0) error("ERROR opening socket");
 
 
      struct sockaddr_in serv_addr;
-     //bzero((char *) &serv_addr, sizeof(serv_addr));
      memset(&serv_addr,0,sizeof(serv_addr));
 
      int port_number = atoi(argv[1]);
@@ -52,28 +51,26 @@ int main(int argc, char *argv[])
 
      if (bind(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) error("ERROR on binding");
 
-     if (listen(socket_fd,5) < 0) error("ERROR while preparing to accept connections on socket");
+     if (listen(socket_fd,QUEUESIZE) < 0) error("ERROR while preparing to accept connections on socket");
 
      struct sockaddr_in client_addr;
      socklen_t client_addr_length = sizeof(client_addr);
 
      for (;;){
-     int clientsocket_fd = accept(socket_fd, (struct sockaddr *) &client_addr, &client_addr_length);
-     if (clientsocket_fd < 0) error("ERROR on accept");
+         int clientsocket_fd = accept(socket_fd, (struct sockaddr *) &client_addr, &client_addr_length);
+         if (clientsocket_fd < 0) error("ERROR on accept");
 
-     signal(SIGCHLD, SIG_IGN);  // to avoid creating zombies
-     pid_t pid = fork();
+         signal(SIGCHLD, SIG_IGN);  // to avoid creating zombies
+         pid_t pid = fork();
 
-     if (pid < 0) error("ERROR on fork");
-     if (pid == 0){
-         close(socket_fd);
-         handleConnection(clientsocket_fd);
-         exit(0);
-
+         if (pid < 0) error("ERROR on fork");
+         if (pid == 0){
+             close(socket_fd);
+             handleConnection(clientsocket_fd);
+             exit(0);
+         }
+         else close(clientsocket_fd);
      }
-     else close(clientsocket_fd);
-     }
-
 
      close(socket_fd);
      return 0;

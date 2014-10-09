@@ -1,3 +1,5 @@
 *.user
 *.autosave
 *~
+*.o
+webserver-cpp
