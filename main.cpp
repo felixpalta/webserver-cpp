@@ -6,15 +6,46 @@
 #include <netinet/in.h>
 #include <signal.h>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <cstring>
+#include <fstream>
 
-static const std::string reply =
+static const std::string START_PAGE_NAME = "index.html";
+
+static const std::string METHOD_GET = "GET";
+static const std::string ROOT_PATH = "/";
+
+static const std::string REPLY_NOT_IMPLEMENTED =
+        "HTTP/1.1 501 Not Implemented\n"
+        "Content-Type: text/html; charset=utf-8\n"
+        "\n"
+        "<html>"
+        "<head><title>501 Not Implemented</title></head>"
+        "<body><center><h1><b>501 Not implemented</b></h1></center></body>"
+        "</html>";
+
+static const std::string REPLY_BAD_REQUEST =
+        "HTTP/1.1 400 Bad Request\n"
+        "Content-Type: text/html; charset=utf-8\n"
+        "\n"
+        "<html>"
+        "<head><title>400 Bad Request</title></head>"
+        "<body><center><h1><b>400 Bad Request</b></h1></center></body>"
+        "</html>";
+
+static const std::string REPLY_NOT_FOUND =
+        "HTTP/1.1 404 Not Found\n"
+        "Content-Type: text/html; charset=utf-8\n"
+        "\n"
+        "<html>"
+        "<head><title>404 Not Found</title></head>"
+        "<body><center><h1><b>404 Not Found</b></h1></center></body>"
+        "</html>";
+
+static const std::string REPLY_OK =
         "HTTP/1.1 200 OK\n"
         "Content-Type: text/html; charset=utf-8\n"
-
-        "\n"
-        "<html><h1><b>Hello there!</b></h1></html>"
         "\n";
 
 static const unsigned BUFSIZE = 1024;
@@ -27,6 +58,7 @@ void error(const std::string& msg)
 }
 
 void handleConnection(int clientsocket_fd);
+int sendReply(int socket_fd,const std::string& reply);
 
 int main(int argc, char *argv[])
 {
@@ -86,12 +118,54 @@ void handleConnection(int clientsocket_fd){
     }
 
     std::cout << "Message received: " << buffer << std::endl;
+    std::string msg_string(buffer);
 
-    n = write(clientsocket_fd,reply.c_str(),reply.size());
-    if (n < 0) {
-        close(clientsocket_fd);
-        error("ERROR writing to socket");
+    std::istringstream msg_stream(msg_string);
+
+    std::string header;
+    if (std::getline(msg_stream,header)) {
+
+        std::istringstream header_stream(header);
+        std::string method;
+
+        if (header_stream >> method && method == METHOD_GET) {
+            std::cout << "Method GET received" << std::endl;
+            std::string path;
+            if (header_stream >> path && path == ROOT_PATH)
+            {
+
+                   std::ifstream start_page_stream(START_PAGE_NAME.c_str());
+                   if (start_page_stream){
+                       std::stringstream file_buffer;
+                       file_buffer << start_page_stream.rdbuf();
+                       sendReply(clientsocket_fd,REPLY_OK);
+                       sendReply(clientsocket_fd,file_buffer.str());
+                       }
+                   else {
+                       sendReply(clientsocket_fd,REPLY_NOT_FOUND);
+                       std::cout << "Path: " << path << std::endl;
+                   }
+
+            }
+            else {
+                sendReply(clientsocket_fd,REPLY_NOT_FOUND);
+                std::cout << "Path: " << path << std::endl;
+            }
+        }
+        else  {
+            sendReply(clientsocket_fd,REPLY_NOT_IMPLEMENTED);
+            std::cout << "Method: " << method << std::endl;
+        }
     }
+    else sendReply(clientsocket_fd,REPLY_BAD_REQUEST);
 
     close(clientsocket_fd);
+}
+
+int sendReply(int socket_fd,const std::string& reply){
+    int n = write(socket_fd,reply.c_str(),reply.size());
+    if (n < 0) {
+        close(socket_fd);
+        error("ERROR writing to socket");
+    }
 }
