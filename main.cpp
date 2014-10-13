@@ -61,6 +61,8 @@ std::string makeReply(HTTP_CODES code){
 static const unsigned BUFSIZE = 1024;
 static const unsigned QUEUESIZE = 5;
 
+static const unsigned MIN_PORT_NUMBER = 1024;
+
 void error(const std::string& msg)
 {
     perror(msg.c_str());
@@ -78,6 +80,12 @@ int main(int argc, char *argv[])
          exit(1);
      }
 
+     int port_number = atoi(argv[1]);
+     if (port_number <= MIN_PORT_NUMBER) {
+         std::cerr << "This port is invaid or reserved: " << port_number << std::endl;
+         exit (1);
+     }
+
      int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 
      if (socket_fd < 0) error("ERROR opening socket");
@@ -86,7 +94,6 @@ int main(int argc, char *argv[])
      struct sockaddr_in serv_addr;
      memset(&serv_addr,0,sizeof(serv_addr));
 
-     int port_number = atoi(argv[1]);
      serv_addr.sin_family = AF_INET;
      serv_addr.sin_addr.s_addr = INADDR_ANY;
      serv_addr.sin_port = htons(port_number);
