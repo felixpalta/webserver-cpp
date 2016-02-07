@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
      }
 
      int port_number = atoi(argv[1]);
-     if (port_number <= MIN_PORT_NUMBER) {
+     if ((unsigned) port_number <= MIN_PORT_NUMBER) {
          std::cerr << "This port is invaid or reserved: " << port_number << std::endl;
          exit (1);
      }
