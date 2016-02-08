@@ -75,52 +75,53 @@ void sendReply(int socket_fd,const std::string& reply);
 int main(int argc, char *argv[])
 {
 
-     if (argc < 2) {
-         std::cerr << "ERROR, no port provided" << std::endl;
-         exit(1);
+    if (argc < 2) {
+     std::cerr << "ERROR, no port provided" << std::endl;
+     exit(1);
+    }
+
+    int port_number = atoi(argv[1]);
+    if ((unsigned) port_number <= MIN_PORT_NUMBER) {
+     std::cerr << "This port is invaid or reserved: " << port_number << std::endl;
+     exit (1);
+    }
+
+
+    int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (socket_fd < 0) error("ERROR opening socket");
+
+
+    struct sockaddr_in serv_addr;
+    memset(&serv_addr,0,sizeof(serv_addr));
+
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_port = htons(port_number);
+
+    if (bind(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) error("ERROR on binding");
+
+    if (listen(socket_fd,QUEUESIZE) < 0) error("ERROR while preparing to accept connections on socket");
+
+
+    for (;;){
+     int clientsocket_fd = accept(socket_fd, NULL, NULL);
+     if (clientsocket_fd < 0) error("ERROR on accept");
+
+     signal(SIGCHLD, SIG_IGN);  // to avoid creating zombies
+     pid_t pid = fork();
+
+     if (pid < 0) error("ERROR on fork");
+     if (pid == 0){
+         close(socket_fd);
+         handleConnection(clientsocket_fd);
+         exit(0);
      }
+     else close(clientsocket_fd);
+    }
 
-     int port_number = atoi(argv[1]);
-     if ((unsigned) port_number <= MIN_PORT_NUMBER) {
-         std::cerr << "This port is invaid or reserved: " << port_number << std::endl;
-         exit (1);
-     }
-
-     int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-
-     if (socket_fd < 0) error("ERROR opening socket");
-
-
-     struct sockaddr_in serv_addr;
-     memset(&serv_addr,0,sizeof(serv_addr));
-
-     serv_addr.sin_family = AF_INET;
-     serv_addr.sin_addr.s_addr = INADDR_ANY;
-     serv_addr.sin_port = htons(port_number);
-
-     if (bind(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) error("ERROR on binding");
-
-     if (listen(socket_fd,QUEUESIZE) < 0) error("ERROR while preparing to accept connections on socket");
-
-
-     for (;;){
-         int clientsocket_fd = accept(socket_fd, NULL, NULL);
-         if (clientsocket_fd < 0) error("ERROR on accept");
-
-         signal(SIGCHLD, SIG_IGN);  // to avoid creating zombies
-         pid_t pid = fork();
-
-         if (pid < 0) error("ERROR on fork");
-         if (pid == 0){
-             close(socket_fd);
-             handleConnection(clientsocket_fd);
-             exit(0);
-         }
-         else close(clientsocket_fd);
-     }
-
-     close(socket_fd);
-     return 0;
+    close(socket_fd);
+    return 0;
 }
 
 void handleConnection(int clientsocket_fd){
