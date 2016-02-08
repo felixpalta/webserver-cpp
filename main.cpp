@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netdb.h>
 #include <signal.h>
 #include <iostream>
 #include <sstream>
@@ -86,22 +87,38 @@ int main(int argc, char *argv[])
      exit (1);
     }
 
+    struct addrinfo hints, * res;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
 
-    int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    int ga_error = getaddrinfo(NULL, /* port as string */ argv[1], &hints, &res);
+    if (ga_error)
+    {
+        std::cerr << "getaddrinfo() failed: " << gai_strerror(ga_error) << std::endl;
+    }
 
-    if (socket_fd < 0) error("ERROR opening socket");
+    /* we consider that the first result in the list will be valid */
 
+    int socket_fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 
-    struct sockaddr_in serv_addr;
-    memset(&serv_addr,0,sizeof(serv_addr));
+    if (socket_fd < 0)
+        error("ERROR opening socket");
 
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(port_number);
+    if (bind(socket_fd, res->ai_addr, res->ai_addrlen) < 0)
+    {
+        close(socket_fd);
+        error("ERROR on binding");
+    }
 
-    if (bind(socket_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) error("ERROR on binding");
+    freeaddrinfo(res);
 
-    if (listen(socket_fd,QUEUESIZE) < 0) error("ERROR while preparing to accept connections on socket");
+    if (listen(socket_fd,QUEUESIZE) < 0)
+    {
+        close(socket_fd);
+        error("ERROR while preparing to accept connections on socket");
+    }
 
 
     for (;;){
