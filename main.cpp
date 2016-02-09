@@ -74,6 +74,16 @@ void error(const std::string& msg)
 void handleConnection(int clientsocket_fd);
 void sendReply(int socket_fd,const std::string& reply);
 
+// get sockaddr, IPv4 or IPv6:
+void *get_in_addr(struct sockaddr *sa)
+{
+    if (sa->sa_family == AF_INET) {
+        return &(((struct sockaddr_in*)sa)->sin_addr);
+    }
+
+    return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -98,6 +108,7 @@ int main(int argc, char *argv[])
     if (ga_error)
     {
         std::cerr << "getaddrinfo() failed: " << gai_strerror(ga_error) << std::endl;
+        return 1;
     }
 
     /* we consider that the first result in the list will be valid */
@@ -113,8 +124,6 @@ int main(int argc, char *argv[])
         error("ERROR on binding");
     }
 
-    auto ai_family = res->ai_family;
-
     freeaddrinfo(res);
 
     if (listen(socket_fd,QUEUESIZE) < 0)
@@ -124,35 +133,18 @@ int main(int argc, char *argv[])
     }
 
     char ipstr[INET6_ADDRSTRLEN];
-    const char * ipverstring;
+
+    struct sockaddr_storage their_addr;
+    socklen_t addr_size = sizeof their_addr;
 
     for (;;){
 
-        struct sockaddr_storage their_addr;
-        socklen_t addr_size;
-
         int clientsocket_fd = accept(socket_fd, (struct sockaddr *) &their_addr, &addr_size);
-        if (clientsocket_fd < 0) error("ERROR on accept");
+        if (clientsocket_fd < 0)
+            error("ERROR on accept");
 
-        void *addr_binary;
-
-        if (ai_family == AF_INET) {
-            struct sockaddr_in * sockaddr_ipv4 = (struct sockaddr_in*) &their_addr;
-            addr_binary = &sockaddr_ipv4->sin_addr;
-            ipverstring = "IPv4";
-        }
-        else if (ai_family == AF_INET6) {
-            struct sockaddr_in6 * sockaddr_ipv6 = (struct sockaddr_in6*) &their_addr;
-            addr_binary = &sockaddr_ipv6->sin6_addr;
-            ipverstring = "IPv6";
-        }
-        else {
-            std::cerr << "Unsupported address family: " << res->ai_family << std::endl;
-            return 1;
-        }
-
-        if (inet_ntop(ai_family, addr_binary, ipstr, sizeof ipstr)){
-            std::cout << "New connection, " << ipverstring << ": " << ipstr << std::endl;
+        if (inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *) &their_addr), ipstr, sizeof ipstr)){
+            std::cout << "New connection: " << ipstr << std::endl;
         }
         else {
             error("inet_ntop() failed");
