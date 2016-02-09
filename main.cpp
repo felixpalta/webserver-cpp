@@ -137,6 +137,8 @@ int main(int argc, char *argv[])
     struct sockaddr_storage their_addr;
     socklen_t addr_size = sizeof their_addr;
 
+    signal(SIGCHLD, SIG_IGN);  // to avoid creating zombies
+
     for (;;){
 
         int clientsocket_fd = accept(socket_fd, (struct sockaddr *) &their_addr, &addr_size);
@@ -150,7 +152,7 @@ int main(int argc, char *argv[])
             error("inet_ntop() failed");
         }
 
-        signal(SIGCHLD, SIG_IGN);  // to avoid creating zombies
+
         pid_t pid = fork();
 
         if (pid < 0) error("ERROR on fork");
