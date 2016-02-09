@@ -178,12 +178,20 @@ void handleConnection(int clientsocket_fd){
 
     char buffer[BUFSIZE];
     memset(buffer,0,BUFSIZE);
-    auto n = read(clientsocket_fd,buffer,BUFSIZE-1);
+    auto n = recv(clientsocket_fd, buffer, BUFSIZE - 1, 0);
     if (n < 0)
     {
         close(clientsocket_fd);
         error("ERROR reading from socket");
     }
+    if (n == 0)
+    {
+        close(clientsocket_fd);
+        std::cout << "Connection closed by peer" << std::endl;
+        return;
+    }
+
+    buffer[n] = '\0';
 
     std::cout << "Message received: " << buffer << std::endl;
     std::string msg_string(buffer);
