@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 #include <signal.h>
 #include <iostream>
 #include <sstream>
@@ -112,6 +113,8 @@ int main(int argc, char *argv[])
         error("ERROR on binding");
     }
 
+    auto ai_family = res->ai_family;
+
     freeaddrinfo(res);
 
     if (listen(socket_fd,QUEUESIZE) < 0)
@@ -120,22 +123,52 @@ int main(int argc, char *argv[])
         error("ERROR while preparing to accept connections on socket");
     }
 
+    char ipstr[INET6_ADDRSTRLEN];
+    const char * ipverstring;
 
     for (;;){
-     int clientsocket_fd = accept(socket_fd, NULL, NULL);
-     if (clientsocket_fd < 0) error("ERROR on accept");
 
-     signal(SIGCHLD, SIG_IGN);  // to avoid creating zombies
-     pid_t pid = fork();
+        struct sockaddr_storage their_addr;
+        socklen_t addr_size;
 
-     if (pid < 0) error("ERROR on fork");
-     if (pid == 0){
+        int clientsocket_fd = accept(socket_fd, (struct sockaddr *) &their_addr, &addr_size);
+        if (clientsocket_fd < 0) error("ERROR on accept");
+
+        void *addr_binary;
+
+        if (ai_family == AF_INET) {
+            struct sockaddr_in * sockaddr_ipv4 = (struct sockaddr_in*) &their_addr;
+            addr_binary = &sockaddr_ipv4->sin_addr;
+            ipverstring = "IPv4";
+        }
+        else if (ai_family == AF_INET6) {
+            struct sockaddr_in6 * sockaddr_ipv6 = (struct sockaddr_in6*) &their_addr;
+            addr_binary = &sockaddr_ipv6->sin6_addr;
+            ipverstring = "IPv6";
+        }
+        else {
+            std::cerr << "Unsupported address family: " << res->ai_family << std::endl;
+            return 1;
+        }
+
+        if (inet_ntop(ai_family, addr_binary, ipstr, sizeof ipstr)){
+            std::cout << "New connection, " << ipverstring << ": " << ipstr << std::endl;
+        }
+        else {
+            error("inet_ntop() failed");
+        }
+
+        signal(SIGCHLD, SIG_IGN);  // to avoid creating zombies
+        pid_t pid = fork();
+
+        if (pid < 0) error("ERROR on fork");
+        if (pid == 0){
          close(socket_fd);
          handleConnection(clientsocket_fd);
          exit(0);
-     }
-     else close(clientsocket_fd);
-    }
+        }
+        else close(clientsocket_fd);
+        }
 
     close(socket_fd);
     return 0;
@@ -145,7 +178,7 @@ void handleConnection(int clientsocket_fd){
 
     char buffer[BUFSIZE];
     memset(buffer,0,BUFSIZE);
-    int n = read(clientsocket_fd,buffer,BUFSIZE-1);
+    auto n = read(clientsocket_fd,buffer,BUFSIZE-1);
     if (n < 0)
     {
         close(clientsocket_fd);
@@ -198,7 +231,7 @@ void handleConnection(int clientsocket_fd){
 }
 
 void sendReply(int socket_fd,const std::string& reply){
-    int n = write(socket_fd,reply.c_str(),reply.size());
+    auto n = write(socket_fd,reply.c_str(),reply.size());
     if (n < 0) {
         close(socket_fd);
         error("ERROR writing to socket");
